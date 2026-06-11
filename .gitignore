@@ -16,7 +16,7 @@ build/
 htmlcov/
 
 # Data & secrets
-data/
+/data/
 *.duckdb
 .env
 *.pem

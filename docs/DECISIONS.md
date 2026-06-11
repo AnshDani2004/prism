@@ -191,3 +191,15 @@ Plain-language record of design choices. Append-only — never rewrite history.
 **Why:** Bailey & Lopez de Prado showed that testing many strategies inflates observed Sharpe. Auditable trial count is intellectual honesty infrastructure, not bureaucracy.
 
 **What we explicitly did NOT do:** Report best Sharpe across unlogged experiments. Cherry-pick threshold on test set.
+
+---
+
+## 2026-06-11 — Anchor gitignore `data/` to repo root
+
+**What was decided:** `.gitignore` uses `/data/` (root-anchored) instead of `data/` to exclude only the DuckDB directory at `data/prism.duckdb`, not the `src/data/` Python package.
+
+**Why:** An unanchored `data/` pattern matches any directory named `data` anywhere in the tree. The entire `src/data/` ingestion layer was silently excluded from version control. Local development kept working because files existed on disk, but CI on a fresh checkout failed immediately — the first real test of reproducibility.
+
+**What we explicitly did NOT do:** Rename `src/data/` to avoid the collision. The package name is correct; the ignore rule was wrong.
+
+**Revisit if:** We add another top-level data directory with a different name, or split raw data from the database path.
