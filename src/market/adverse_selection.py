@@ -10,6 +10,7 @@ import pandas as pd
 
 from src.data.database import PrismDatabase
 from src.market.interface import ContractResolver
+from src.utils.pandas_typing import as_float, as_int, as_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,9 @@ class AdverseSelectionDetector:
 
         for row in scoring.itertuples(index=False):
             wc = self.resolver.game_clock_to_wall(
-                row.game_date, row.seconds_remaining, sport  # type: ignore[attr-defined]
+                as_timestamp(row.game_date),
+                as_float(row.seconds_remaining),
+                sport,
             )
             event_ts = _to_utc(wc)
             p0 = self.resolver.compute_implied_probability(
@@ -128,7 +131,7 @@ class AdverseSelectionDetector:
             records.append(
                 {
                     "game_id": game_id,
-                    "seconds_remaining": int(row.seconds_remaining),  # type: ignore[attr-defined]
+                    "seconds_remaining": as_int(row.seconds_remaining),
                     "event_timestamp": event_ts,
                     "correction_latency_seconds": latency,
                     "price_impact": self.compute_price_impact(
@@ -169,8 +172,8 @@ class AdverseSelectionDetector:
             sport = str(getattr(row, "sport", "NFL"))
             game_date = getattr(row, "game_date", pd.Timestamp("2023-01-01"))
             wc = self.resolver.game_clock_to_wall(
-                game_date,
-                row.seconds_remaining,  # type: ignore[attr-defined]
+                as_timestamp(game_date),
+                as_float(row.seconds_remaining),
                 sport,
             )
             signal_ts = _to_utc(wc)
@@ -185,8 +188,8 @@ class AdverseSelectionDetector:
 
             delayed_price = float(at_delay.iloc[-1]["implied_prob"])
             delayed_prices.append(delayed_price)
-            orig_edge = float(row.edge)  # type: ignore[attr-defined]
-            model_prob = float(row.model_prob)  # type: ignore[attr-defined]
+            orig_edge = as_float(row.edge)
+            model_prob = as_float(row.model_prob)
             new_edge = model_prob - delayed_price
             delayed_edge.append(new_edge)
 

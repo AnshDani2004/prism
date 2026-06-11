@@ -11,6 +11,7 @@ from scipy import stats
 from scipy.stats import skellam
 
 from src.models.base import WinProbabilityModel
+from src.utils.pandas_typing import as_str
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,9 @@ class MarginRatingModel(WinProbabilityModel):
         diff = home_rating + self.home_advantage_elo - away_rating
         return float(1.0 / (1.0 + 10 ** (-diff / 400)))
 
-    def fit(self, game_states: pd.DataFrame, outcomes: pd.Series | None = None) -> MarginRatingModel:
+    def fit(
+        self, game_states: pd.DataFrame, outcomes: pd.Series | None = None
+    ) -> MarginRatingModel:
         """Fit decay parameter via CV and update ratings chronologically."""
         games = self.final_game_states(game_states).sort_values("game_date")
         if games.empty:
@@ -176,7 +179,7 @@ class MarginRatingModel(WinProbabilityModel):
             pmf = stats.norm.pdf(xs, loc=rating_diff, scale=self.nba_sigma)
         pmf = np.maximum(pmf, 0)
         pmf = pmf / pmf.sum()
-        return pmf
+        return np.asarray(pmf, dtype=float)
 
     def predict(self, game_states: pd.DataFrame, seed: int | None = None) -> np.ndarray:
         """Pre-game win probability via analytic (NBA) or Monte Carlo (NFL)."""
@@ -184,9 +187,9 @@ class MarginRatingModel(WinProbabilityModel):
         probs = np.empty(len(game_states))
 
         for idx, row in enumerate(game_states.itertuples(index=False)):
-            home = row.home_team  # type: ignore[attr-defined]
-            away = row.away_team  # type: ignore[attr-defined]
-            sport = row.sport  # type: ignore[attr-defined]
+            home = as_str(row.home_team)
+            away = as_str(row.away_team)
+            sport = as_str(row.sport)
             r_home = self.ratings.get(home, self.initial_rating)
             r_away = self.ratings.get(away, self.initial_rating)
             rating_diff = (r_home + self.home_advantage_elo - r_away) / 25.0

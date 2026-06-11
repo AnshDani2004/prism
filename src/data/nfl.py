@@ -188,7 +188,9 @@ class NFLAdapter(SportDataAdapter):
         )
         if inconsistent.any():
             n = int(inconsistent.sum())
-            raise ValueError(f"NFL validation failed: {n} rows with inconsistent score differential")
+            raise ValueError(
+                f"NFL validation failed: {n} rows with inconsistent score differential"
+            )
 
         for game_id, group in states.groupby("game_id"):
             secs = group["seconds_remaining"].to_numpy(dtype=np.int64)

@@ -6,7 +6,7 @@ import json
 import logging
 import math
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -130,7 +130,8 @@ class PredictionMarketBacktester:
         else:
             row = at_time.iloc[-1]
 
-        mid = self.resolver.compute_implied_probability(row, str(row.get("market_source", "kalshi")))
+        source = str(row.get("market_source", "kalshi"))
+        mid = self.resolver.compute_implied_probability(row, source)
         bid = float(row["yes_bid"]) if pd.notna(row.get("yes_bid")) else mid - 0.01
         ask = float(row["yes_ask"]) if pd.notna(row.get("yes_ask")) else mid + 0.01
 
@@ -303,7 +304,7 @@ class PredictionMarketBacktester:
     def _log_experiment(self) -> None:
         """Append strategy config to experiment log for deflated Sharpe."""
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "edge_threshold": self.edge_threshold,
             "max_position_size": self.max_position_size,
             "fee_rate": self.fee_rate,
@@ -321,19 +322,19 @@ class PredictionMarketBacktester:
         train_ratio: float = 0.7,
     ) -> list[WalkForwardFold]:
         """Build non-overlapping walk-forward train/test windows."""
-        dates = pd.to_datetime(game_dates).sort_values().unique()
-        if len(dates) < n_folds + 1:
+        date_index = pd.DatetimeIndex(pd.to_datetime(game_dates)).sort_values().unique()
+        if len(date_index) < n_folds + 1:
             return []
 
         folds: list[WalkForwardFold] = []
-        chunk = len(dates) // (n_folds + 1)
+        chunk = len(date_index) // (n_folds + 1)
         for i in range(n_folds):
             train_end_idx = (i + 1) * chunk
-            test_end_idx = min((i + 2) * chunk, len(dates))
-            train_start = pd.Timestamp(dates[0])
-            train_end = pd.Timestamp(dates[train_end_idx - 1])
-            test_start = pd.Timestamp(dates[train_end_idx])
-            test_end = pd.Timestamp(dates[test_end_idx - 1])
+            test_end_idx = min((i + 2) * chunk, len(date_index))
+            train_start = pd.Timestamp(date_index[0])
+            train_end = pd.Timestamp(date_index[train_end_idx - 1])
+            test_start = pd.Timestamp(date_index[train_end_idx])
+            test_end = pd.Timestamp(date_index[test_end_idx - 1])
             if train_end < test_start:
                 folds.append(
                     WalkForwardFold(

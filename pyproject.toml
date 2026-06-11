@@ -37,6 +37,7 @@ dev = [
     "pytest-cov>=4.1.0",
     "ruff>=0.3.0",
     "types-requests>=2.31.0",
+    "scipy-stubs>=1.10.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -55,7 +56,16 @@ explicit_package_bases = true
 packages = ["src", "config"]
 
 [[tool.mypy.overrides]]
-module = ["nfl_data_py.*", "nba_api.*", "xgboost.*", "shap.*", "matplotlib.*", "seaborn.*"]
+module = [
+    "nfl_data_py.*",
+    "nba_api.*",
+    "xgboost.*",
+    "shap.*",
+    "matplotlib.*",
+    "seaborn.*",
+    "sklearn.*",
+    "statsmodels.*",
+]
 ignore_missing_imports = true
 
 [tool.ruff]

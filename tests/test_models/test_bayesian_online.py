@@ -90,12 +90,12 @@ def test_hyperparams_improve_calibration(synthetic_game_states: pd.DataFrame):
     )
     test_outcomes = val["game_id"].map(outcome_map)
 
-    default_ece = model.calibration_error(
+    default_ece = model.evaluate_calibration_error(
         use_fitted_params=False,
         game_states=val,
         test_outcomes=test_outcomes,
     )
-    fitted_ece = model.calibration_error(
+    fitted_ece = model.evaluate_calibration_error(
         use_fitted_params=True,
         game_states=val,
         test_outcomes=test_outcomes,

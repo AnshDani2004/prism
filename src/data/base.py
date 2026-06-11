@@ -43,7 +43,11 @@ class SportDataAdapter(ABC):
         pbp = self.load_pbp(seasons)
         states = self.extract_game_states(pbp)
         self.validate_game_states(states)
-        self.db.upsert_dataframe("game_states", states, primary_key=["game_id", "seconds_remaining"])
+        self.db.upsert_dataframe(
+            "game_states",
+            states,
+            primary_key=["game_id", "seconds_remaining"],
+        )
 
         n_games = states["game_id"].nunique()
         n_scoring = int(states["is_scoring_event"].sum())

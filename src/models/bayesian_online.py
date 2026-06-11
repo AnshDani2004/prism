@@ -17,6 +17,7 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from src.models.base import WinProbabilityModel
+from src.utils.pandas_typing import as_float, as_int
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ class BayesianOnlineWinProb(WinProbabilityModel):
 
     def _expected_rate(self, theta: float) -> float:
         """Home minus away scoring rate differential."""
-        return self.base_rate * (np.exp(theta / 2.0) - np.exp(-theta / 2.0))
+        return float(self.base_rate * (np.exp(theta / 2.0) - np.exp(-theta / 2.0)))
 
     def _h(self, theta: float) -> float:
         """Observation model: expected signed points per unit strength."""
@@ -120,7 +121,7 @@ class BayesianOnlineWinProb(WinProbabilityModel):
 
     def _H(self, theta: float) -> float:
         """Analytic Jacobian dh/dtheta (no numerical differentiation)."""
-        return 0.5 * self.base_rate * (np.exp(theta / 2.0) + np.exp(-theta / 2.0))
+        return float(0.5 * self.base_rate * (np.exp(theta / 2.0) + np.exp(-theta / 2.0)))
 
     def predict_step(self, dt: float) -> None:
         """Time update: strength drifts with process noise over dt seconds."""
@@ -178,7 +179,7 @@ class BayesianOnlineWinProb(WinProbabilityModel):
         Returns updated home win probability.
         """
         team = str(scoring_event["team"])
-        points = int(scoring_event["points"])
+        points = as_int(scoring_event["points"])
         dt = max(time_elapsed - self._posterior.time_elapsed, 1e-6)
 
         self.predict_step(dt)
@@ -217,7 +218,7 @@ class BayesianOnlineWinProb(WinProbabilityModel):
         var = self._posterior.variance
         thetas = self._rng.normal(mu, np.sqrt(max(var, 1e-9)), size=self.mc_samples)
 
-        wins = 0
+        wins = 0.0
         for theta in thetas:
             lam_h = self.base_rate * np.exp(theta / 2.0) * t_frac
             lam_a = self.base_rate * np.exp(-theta / 2.0) * t_frac
@@ -242,9 +243,9 @@ class BayesianOnlineWinProb(WinProbabilityModel):
         prev_home, prev_away = 0, 0
 
         for row in scoring.itertuples(index=False):
-            diff = int(row.score_differential)  # type: ignore[attr-defined]
-            home = int(row.home_score)  # type: ignore[attr-defined]
-            away = int(row.away_score)  # type: ignore[attr-defined]
+            diff = as_int(row.score_differential)
+            home = as_int(row.home_score)
+            away = as_int(row.away_score)
             delta_diff = diff - prev_diff
             delta_home = home - prev_home
             delta_away = away - prev_away
@@ -261,7 +262,7 @@ class BayesianOnlineWinProb(WinProbabilityModel):
                 prev_diff, prev_home, prev_away = diff, home, away
                 continue
 
-            secs = int(row.seconds_remaining)  # type: ignore[attr-defined]
+            secs = as_int(row.seconds_remaining)
             events.append(
                 ScoringEvent(
                     team=team,
@@ -355,7 +356,8 @@ class BayesianOnlineWinProb(WinProbabilityModel):
             return sum(self._sequence_nll(seq, pn, on, br) for seq in sequences)
 
         x0 = np.array([self.process_noise, self.observation_noise, self.base_rate])
-        result = minimize(objective, x0, method="L-BFGS-B", bounds=[(1e-4, 1.0), (0.1, 20.0), (1e-4, 1.0)])
+        bounds = [(1e-4, 1.0), (0.1, 20.0), (1e-4, 1.0)]
+        result = minimize(objective, x0, method="L-BFGS-B", bounds=bounds)
 
         if result.success:
             self.process_noise = float(result.x[0])
@@ -391,8 +393,8 @@ class BayesianOnlineWinProb(WinProbabilityModel):
             event_idx = 0
 
             for row in game_df.itertuples(index=False):
-                secs = float(row.seconds_remaining)  # type: ignore[attr-defined]
-                diff = int(row.score_differential)  # type: ignore[attr-defined]
+                secs = as_float(row.seconds_remaining)
+                diff = as_int(row.score_differential)
 
                 while event_idx < len(events) and events[event_idx].seconds_remaining >= secs:
                     ev = events[event_idx]
@@ -413,7 +415,7 @@ class BayesianOnlineWinProb(WinProbabilityModel):
         self.validate_predictions(probs)
         return probs
 
-    def calibration_error(
+    def evaluate_calibration_error(
         self,
         probs: np.ndarray | None = None,
         outcomes: np.ndarray | None = None,

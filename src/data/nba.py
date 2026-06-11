@@ -9,13 +9,11 @@ from __future__ import annotations
 import logging
 import re
 import time
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import pandas as pd
 from nba_api.stats.endpoints import playbyplay
-
-from typing import TYPE_CHECKING
 
 from src.data.base import SportDataAdapter
 
@@ -44,10 +42,11 @@ def parse_game_clock(clock_str: str | None) -> int | None:
 
 def period_seconds_remaining(period: int, clock_secs: int) -> int:
     """Convert period + period clock to total seconds remaining in regulation/OT."""
-    period_length = 12 * 60 if period <= 4 else 5 * 60
+    reg_length = 12 * 60
+    ot_length = 5 * 60
     periods_after = max(0, 4 - period) if period <= 4 else 0
     ot_periods_after = max(0, period - 4 - 1) if period > 4 else 0
-    return clock_secs + periods_after * 12 * 60 + ot_periods_after * 5 * 60
+    return clock_secs + periods_after * reg_length + ot_periods_after * ot_length
 
 
 class NBAAdapter(SportDataAdapter):
@@ -71,7 +70,7 @@ class NBAAdapter(SportDataAdapter):
 
     def __init__(
         self,
-        db: "PrismDatabase | None" = None,
+        db: PrismDatabase | None = None,
         request_delay: float = 0.6,
     ) -> None:
         super().__init__(db)
@@ -259,7 +258,9 @@ class NBAAdapter(SportDataAdapter):
         )
         if inconsistent.any():
             n = int(inconsistent.sum())
-            raise ValueError(f"NBA validation failed: {n} rows with inconsistent score differential")
+            raise ValueError(
+                f"NBA validation failed: {n} rows with inconsistent score differential"
+            )
 
         for game_id, group in states.groupby("game_id"):
             secs = group["seconds_remaining"].to_numpy(dtype=np.int64)

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import logging
 
-import numpy as np
 import pandas as pd
 
 from src.data.database import PrismDatabase
 from src.market.interface import ContractResolver
 from src.models.base import WinProbabilityModel
+from src.utils.pandas_typing import as_float, as_str
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +40,8 @@ class EdgeCalculator:
         total = 3600  # default NFL; per-row sport handled below
 
         for row in aligned.itertuples(index=False):
-            total = 3600 if str(row.sport).upper() == "NFL" else 2880  # type: ignore[attr-defined]
-            secs = float(row.seconds_remaining)  # type: ignore[attr-defined]
+            total = 3600 if as_str(row.sport).upper() == "NFL" else 2880
+            secs = as_float(row.seconds_remaining)
             is_score = bool(getattr(row, "is_scoring_event", False))
             if is_score:
                 gap = 0.0
@@ -50,7 +50,8 @@ class EdgeCalculator:
                 gap = total if last_score_clock is None else last_score_clock - secs
             gaps.append(max(0.0, gap))
 
-        return pd.Series(gaps, index=aligned.sort_values("seconds_remaining", ascending=False).index)
+        sorted_idx = aligned.sort_values("seconds_remaining", ascending=False).index
+        return pd.Series(gaps, index=sorted_idx)
 
     def classify_edge_type(self, edge_row: pd.Series) -> str:
         """

@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from src.backtest.engine import BacktestResults, EXPERIMENT_LOG
+from src.backtest.engine import EXPERIMENT_LOG, BacktestResults
 from src.models.calibration import CalibrationAnalyzer
 
 logger = logging.getLogger(__name__)
@@ -205,7 +205,9 @@ class BacktestMetrics:
             sharpes.append(self._sharpe_ratio(rets))
 
         alpha = (1 - ci) / 2
-        return (float(np.percentile(sharpes, 100 * alpha)), float(np.percentile(sharpes, 100 * (1 - alpha))))
+        lo = float(np.percentile(sharpes, 100 * alpha))
+        hi = float(np.percentile(sharpes, 100 * (1 - alpha)))
+        return (lo, hi)
 
     def deflated_sharpe(
         self,
@@ -323,7 +325,11 @@ class BacktestMetrics:
         """Murphy decomposition for model forecasts."""
         return CalibrationAnalyzer().brier_decomposition(model_probs, outcomes)
 
-    def save_plots(self, results: BacktestResults, output_dir: Path | str = "outputs/backtest") -> None:
+    def save_plots(
+        self,
+        results: BacktestResults,
+        output_dir: Path | str = "outputs/backtest",
+    ) -> None:
         """Save equity curve, drawdown, and PnL distribution plots."""
         import matplotlib.pyplot as plt
 

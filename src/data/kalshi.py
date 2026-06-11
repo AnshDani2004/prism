@@ -9,7 +9,7 @@ from __future__ import annotations
 import base64
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -77,7 +77,7 @@ class KalshiAdapter:
         api_key_id = self.settings.kalshi_api_key_id
         if not api_key_id:
             raise KalshiAuthError("KALSHI_API_KEY_ID not set in environment")
-        timestamp_ms = str(int(datetime.now(timezone.utc).timestamp() * 1000))
+        timestamp_ms = str(int(datetime.now(UTC).timestamp() * 1000))
         full_path = urlparse(self.base_url + path).path
         signature = self._sign_request(timestamp_ms, method, full_path)
         return {

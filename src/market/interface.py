@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from src.data.database import PrismDatabase
+from src.utils.pandas_typing import as_timestamp
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ class ContractResolver:
         scoring_mask = states["is_scoring_event"].fillna(False)
         if scoring_mask.any():
             for idx in states.index[scoring_mask]:
-                wc = states.at[idx, "wall_clock"]
+                wc = as_timestamp(states.at[idx, "wall_clock"])
                 nearest_idx = (prices["timestamp"] - wc).abs().idxmin()
                 states.at[idx, "wall_clock"] = prices.at[nearest_idx, "timestamp"]
 

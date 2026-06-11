@@ -87,7 +87,9 @@ class XGBInPlayModel(WinProbabilityModel):
         df["is_overtime"] = (df["game_period"] > 4).astype(int)
 
         if self._pregame_model is not None:
-            pregame_df = df.drop_duplicates(subset=["game_id"])[["game_id", "home_team", "away_team"]]
+            pregame_df = df.drop_duplicates(subset=["game_id"])[
+                ["game_id", "home_team", "away_team"]
+            ]
             pregame_probs = self._pregame_model.predict(pregame_df)
             prob_map = dict(zip(pregame_df["game_id"], pregame_probs, strict=True))
             diff_map = {
@@ -181,14 +183,16 @@ class XGBInPlayModel(WinProbabilityModel):
         )
         return self
 
-    def _tune_hyperparams(self, x_train: pd.DataFrame, y_train: pd.Series) -> dict[str, object]:
+    def _tune_hyperparams(
+        self, x_train: pd.DataFrame, y_train: pd.Series
+    ) -> dict[str, int | float]:
         """5-fold time-series CV on training set only."""
         param_grid = [
             {"max_depth": 3, "learning_rate": 0.1, "n_estimators": 100},
             {"max_depth": 4, "learning_rate": 0.05, "n_estimators": 200},
             {"max_depth": 5, "learning_rate": 0.1, "n_estimators": 150},
         ]
-        best_params: dict[str, object] = param_grid[0]
+        best_params: dict[str, int | float] = param_grid[0]
         best_score = float("inf")
         tscv = TimeSeriesSplit(n_splits=min(5, max(2, len(x_train) // 50)))
 
@@ -221,7 +225,7 @@ class XGBInPlayModel(WinProbabilityModel):
         else:
             probs = raw
         self.validate_predictions(probs)
-        return probs
+        return np.asarray(probs, dtype=float)
 
     def _save_feature_importances(self) -> None:
         """Persist feature importances to output directory."""

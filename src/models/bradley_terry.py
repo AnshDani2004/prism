@@ -9,6 +9,7 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from src.models.base import WinProbabilityModel
+from src.utils.pandas_typing import as_str
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,8 @@ class BradleyTerryModel(WinProbabilityModel):
         strengths = dict(zip(self._teams, params[1:], strict=True))
         ll = 0.0
         for j, row in enumerate(games.itertuples(index=False)):
-            s_home = strengths[row.home_team]  # type: ignore[attr-defined]
-            s_away = strengths[row.away_team]  # type: ignore[attr-defined]
+            s_home = strengths[as_str(row.home_team)]
+            s_away = strengths[as_str(row.away_team)]
             logit = s_home + home_adv - s_away
             p_home = 1.0 / (1.0 + np.exp(-logit))
             y = outcomes[j]
@@ -62,7 +63,7 @@ class BradleyTerryModel(WinProbabilityModel):
         x0[0] = self.home_advantage_param
         x0[1:] = [self.team_strengths[t] for t in teams]
 
-        result = minimize(
+        result = minimize(  # type: ignore[call-overload]
             lambda p: self._neg_log_likelihood(p, games, y),
             x0,
             method="L-BFGS-B",
@@ -84,10 +85,10 @@ class BradleyTerryModel(WinProbabilityModel):
         probs = np.empty(len(game_states))
         for idx, row in enumerate(game_states.itertuples(index=False)):
             s_home = self.team_strengths.get(
-                row.home_team, self.league_avg_strength  # type: ignore[attr-defined]
+                as_str(row.home_team), self.league_avg_strength
             )
             s_away = self.team_strengths.get(
-                row.away_team, self.league_avg_strength  # type: ignore[attr-defined]
+                as_str(row.away_team), self.league_avg_strength
             )
             logit = s_home + self.home_advantage_param - s_away
             probs[idx] = 1.0 / (1.0 + np.exp(-logit))
