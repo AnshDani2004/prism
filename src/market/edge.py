@@ -44,7 +44,7 @@ class EdgeCalculator:
             secs = float(row.seconds_remaining)  # type: ignore[attr-defined]
             is_score = bool(getattr(row, "is_scoring_event", False))
             if is_score:
-                gap = 0.0 if last_score_clock is None else last_score_clock - secs
+                gap = 0.0
                 last_score_clock = secs
             else:
                 gap = total if last_score_clock is None else last_score_clock - secs

@@ -35,11 +35,17 @@ def test_probabilities_in_unit_interval(synthetic_game_states, synthetic_outcome
 def test_symmetry(synthetic_game_states, synthetic_outcomes):
     model = BradleyTerryModel()
     model.fit(synthetic_game_states, synthetic_outcomes)
+    assert abs(model.strength_diff("T01", "T02") + model.strength_diff("T02", "T01")) < 1e-6
     game_ab = create_game("T01", "T02")
     game_ba = create_game("T02", "T01")
     prob_ab = model.predict(game_ab)[0]
     prob_ba = model.predict(game_ba)[0]
-    assert abs(prob_ab + (1 - prob_ba)) < 1e-4
+    d = model.strength_diff("T01", "T02")
+    h = model.home_advantage_param
+    expected_ab = 1.0 / (1.0 + np.exp(-(d + h)))
+    expected_ba = 1.0 / (1.0 + np.exp(-(-d + h)))
+    assert abs(prob_ab - expected_ab) < 1e-4
+    assert abs(prob_ba - expected_ba) < 1e-4
 
 
 def test_home_advantage_is_positive(synthetic_game_states, synthetic_outcomes):

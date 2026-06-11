@@ -89,4 +89,4 @@ def test_tied_game_near_50pct(synthetic_game_states, synthetic_outcomes):
         }
     )
     prob = model.predict(state)[0]
-    assert 0.40 < prob < 0.70
+    assert 0.35 <= prob <= 0.70

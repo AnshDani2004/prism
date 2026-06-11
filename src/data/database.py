@@ -92,6 +92,18 @@ CREATE TABLE IF NOT EXISTS edge_signals (
 """
 
 
+def _normalize_timestamps_for_storage(df: pd.DataFrame) -> pd.DataFrame:
+    """Store timestamps as naive UTC so DuckDB round-trips without local tz shift."""
+    out = df.copy()
+    for col in out.columns:
+        if col == "timestamp" or col.endswith("_at"):
+            if pd.api.types.is_datetime64_any_dtype(out[col]) or (
+                out[col].dtype == object and out[col].notna().any()
+            ):
+                out[col] = pd.to_datetime(out[col], utc=True).dt.tz_localize(None)
+    return out
+
+
 class PrismDatabase:
   """DuckDB wrapper for PRISM analytical storage."""
 
@@ -146,6 +158,7 @@ class PrismDatabase:
           logger.warning("No rows to upsert into %s", table)
           return 0
 
+      df = _normalize_timestamps_for_storage(df)
       temp = f"_tmp_{table}"
       self.conn.register(temp, df)
       cols = ", ".join(df.columns)
@@ -162,6 +175,7 @@ class PrismDatabase:
       """Bulk insert a DataFrame into a table."""
       if df.empty:
           return 0
+      df = _normalize_timestamps_for_storage(df)
       self.conn.register("_insert_df", df)
       cols = ", ".join(df.columns)
       self.conn.execute(f"INSERT INTO {table} ({cols}) SELECT {cols} FROM _insert_df")

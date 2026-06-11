@@ -16,8 +16,9 @@ def _make_game_states(n_games: int = 80, seed: int = 42) -> pd.DataFrame:
     teams = [f"T{i:02d}" for i in range(12)]
 
     for g in range(n_games):
-        season = 2018 + (g % 6)  # 2018-2023
-        game_date = date(2018, 9, 1) + timedelta(days=g * 4)
+        # Keep season monotonic with game_date so temporal train/val splits are valid.
+        season = min(2023, 2018 + g // 17)
+        game_date = date(season, 9, 1) + timedelta(days=(g % 17) * 4)
         home = teams[g % len(teams)]
         away = teams[(g + 3) % len(teams)]
         home_boost = 3 if rng.random() < 0.55 else 0  # home-field edge in outcomes

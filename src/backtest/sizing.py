@@ -19,7 +19,7 @@ class KellySizer:
         kelly_fraction: float = 0.25,
         max_position_size: float = 0.05,
     ) -> None:
-        self.kelly_fraction = kelly_fraction
+        self._kelly_scale = kelly_fraction
         self.max_position_size = max_position_size
 
     def kelly_fraction_raw(
@@ -50,7 +50,7 @@ class KellySizer:
         kelly_fraction: float | None = None,
     ) -> float:
         """Compute fractional Kelly fraction of capital to deploy."""
-        frac = kelly_fraction if kelly_fraction is not None else self.kelly_fraction
+        frac = kelly_fraction if kelly_fraction is not None else self._kelly_scale
         f_star = self.kelly_fraction_raw(model_prob, market_price)
         return self.validate_sizing(f_star * frac)
 
@@ -61,7 +61,7 @@ class KellySizer:
         kelly_fraction: float | None = None,
     ) -> float:
         """Kelly fraction for selling YES (fading overpriced home win)."""
-        frac = kelly_fraction if kelly_fraction is not None else self.kelly_fraction
+        frac = kelly_fraction if kelly_fraction is not None else self._kelly_scale
         # Selling YES ≡ buying NO at (1 - bid); use complement symmetry
         f_star = self.kelly_fraction_raw(1.0 - model_prob, 1.0 - market_price)
         return self.validate_sizing(f_star * frac)

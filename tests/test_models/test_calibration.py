@@ -11,7 +11,7 @@ def test_ece_computation_correct():
     probs = np.array([0.2, 0.2, 0.8, 0.8])
     outcomes = np.array([0, 0, 1, 1])
     ece = CalibrationAnalyzer.ece(probs, outcomes, n_bins=2)
-    assert ece < 0.05
+    assert ece == pytest.approx(0.2)
 
 
 def test_isotonic_calibration_reduces_ece(synthetic_game_states, synthetic_outcomes, tmp_path):
@@ -22,11 +22,15 @@ def test_isotonic_calibration_reduces_ece(synthetic_game_states, synthetic_outco
     val = synthetic_game_states[synthetic_game_states["season"] == 2022]
     if val.empty:
         pytest.skip("No validation data")
-    outcomes = model.home_win_outcomes(model.final_game_states(val)).to_numpy()
+    final_val = model.final_game_states(val)
+    outcome_map = dict(
+        zip(final_val["game_id"], model.home_win_outcomes(final_val), strict=True)
+    )
+    outcomes_per_row = val["game_id"].map(outcome_map).to_numpy()
     raw = model.predict(val, calibrated=False)
     calibrated = model.predict(val, calibrated=True)
-    raw_ece = CalibrationAnalyzer.ece(raw, outcomes[: len(raw)])
-    cal_ece = CalibrationAnalyzer.ece(calibrated, outcomes[: len(calibrated)])
+    raw_ece = CalibrationAnalyzer.ece(raw, outcomes_per_row)
+    cal_ece = CalibrationAnalyzer.ece(calibrated, outcomes_per_row)
     assert cal_ece <= raw_ece + 0.01
 
 

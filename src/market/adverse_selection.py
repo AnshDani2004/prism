@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,14 @@ from src.data.database import PrismDatabase
 from src.market.interface import ContractResolver
 
 logger = logging.getLogger(__name__)
+
+
+def _to_utc(ts: pd.Timestamp | datetime) -> pd.Timestamp:
+    """Normalize naive or tz-aware timestamps to UTC."""
+    stamp = pd.Timestamp(ts)
+    if stamp.tzinfo is not None:
+        return stamp.tz_convert("UTC")
+    return stamp.tz_localize("UTC")
 
 
 class AdverseSelectionDetector:
@@ -33,6 +42,7 @@ class AdverseSelectionDetector:
         prices = self.resolver.load_market_prices(contract_id, market_source)
         if not prices.empty:
             prices = prices.sort_values("timestamp").copy()
+            prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True)
             prices["implied_prob"] = prices.apply(
                 lambda r: self.resolver.compute_implied_probability(r, market_source),
                 axis=1,
@@ -56,7 +66,7 @@ class AdverseSelectionDetector:
         if prices.empty:
             return 0.0
 
-        event_ts = pd.Timestamp(event_timestamp, tz="UTC")
+        event_ts = _to_utc(event_timestamp)
         before = prices[prices["timestamp"] <= event_ts]
         after = prices[
             (prices["timestamp"] > event_ts)
@@ -94,7 +104,7 @@ class AdverseSelectionDetector:
             wc = self.resolver.game_clock_to_wall(
                 row.game_date, row.seconds_remaining, sport  # type: ignore[attr-defined]
             )
-            event_ts = pd.Timestamp(wc, tz="UTC")
+            event_ts = _to_utc(wc)
             p0 = self.resolver.compute_implied_probability(
                 prices[prices["timestamp"] <= event_ts].iloc[-1]
                 if not prices[prices["timestamp"] <= event_ts].empty
@@ -163,7 +173,7 @@ class AdverseSelectionDetector:
                 row.seconds_remaining,  # type: ignore[attr-defined]
                 sport,
             )
-            signal_ts = pd.Timestamp(wc, tz="UTC")
+            signal_ts = _to_utc(wc)
             delayed_ts = signal_ts + pd.Timedelta(seconds=entry_delay_seconds)
 
             at_delay = prices[prices["timestamp"] <= delayed_ts]

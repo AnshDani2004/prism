@@ -10,7 +10,7 @@ def test_calibration_error_perfect():
     probs = np.array([0.1, 0.3, 0.7, 0.9])
     outcomes = np.array([0, 0, 1, 1])
     ece = WinProbabilityModel.calibration_error(probs, outcomes, n_bins=2)
-    assert ece < 0.15
+    assert ece == pytest.approx(0.2)
 
 
 def test_validate_predictions():
