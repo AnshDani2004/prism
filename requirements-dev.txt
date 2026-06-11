@@ -1,0 +1,17 @@
+-r requirements.txt
+scikit-learn>=1.4.0
+scipy>=1.12.0
+statsmodels>=0.14.0
+xgboost>=2.0.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+shap>=0.44.0
+jupyter>=1.0.0
+nbconvert>=7.0.0
+black>=24.0.0
+mypy>=1.8.0
+pandas-stubs>=2.1.0
+pytest>=8.0.0
+pytest-cov>=4.1.0
+ruff>=0.3.0
+types-requests>=2.31.0

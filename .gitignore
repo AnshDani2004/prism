@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data & secrets
+data/
+*.duckdb
+.env
+*.pem
+
+# Outputs
+outputs/
+.ipynb_checkpoints/
+
+# IDE
+.idea/
+.vscode/
