@@ -134,7 +134,12 @@ class NBAAdapter(SportDataAdapter):
 
             # Anomaly check
             if home_final > self.MAX_REGULATION_POINTS or away_final > self.MAX_REGULATION_POINTS:
-                logger.debug("High-scoring game flagged: %s (%d-%d)", game_id, home_final, away_final)
+                logger.debug(
+                    "High-scoring game flagged: %s (%d-%d)",
+                    game_id,
+                    home_final,
+                    away_final,
+                )
 
             # State at game start (t=0)
             records.append({

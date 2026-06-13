@@ -3,12 +3,19 @@ Polymarket historical data pipeline via Gamma Events API.
 Correct endpoint: /events with tag= filter, NOT /markets.
 """
 from __future__ import annotations
-import json, logging, re, time
+
+import json
+import logging
+import re
+import time
 from datetime import date
 from typing import TYPE_CHECKING, Any
+
 import pandas as pd
 import requests
+
 from src.data.base import SportDataAdapter
+
 if TYPE_CHECKING:
     from src.data.database import PrismDatabase
 
@@ -40,7 +47,8 @@ NBA_NAME_TO_ABV = {
 }
 
 TEAM_PATTERN = re.compile(
-    r"Will (?:the )?(.+?) (?:beat|vs\.?|@|against|cover|win) (?:the )?(.+?)(?:\s+by|\s+in|\s+to|\s+win|\?|$)",
+    r"Will (?:the )?(.+?) (?:beat|vs\.?|@|against|cover|win) "
+    r"(?:the )?(.+?)(?:\s+by|\s+in|\s+to|\s+win|\?|$)",
     re.IGNORECASE,
 )
 
@@ -79,7 +87,7 @@ def parse_end_date(date_str: str | None) -> date | None:
 class PolymarketAdapter(SportDataAdapter):
     sport = "POLYMARKET"
 
-    def __init__(self, db: "PrismDatabase | None" = None) -> None:
+    def __init__(self, db: PrismDatabase | None = None) -> None:
         super().__init__(db)
 
     def load_pbp(self, seasons: list[int]) -> pd.DataFrame:
