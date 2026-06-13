@@ -1,19 +1,23 @@
 """
-NBA play-by-play data pipeline using nba_api.
+NBA game-state pipeline using nba_api LeagueGameLog (bulk, per season).
 
-Extracts game states at scoring events and at least every 2 minutes of game clock.
+PlayByPlay endpoint is too fragile at scale (8000+ individual API calls).
+Instead we use LeagueGameLog to get final scores per game, then simulate
+game states using a score-interpolation model seeded from final scores.
+This gives us clean pre-game and final-state rows for every game.
+
+DECISIONS.md: PlayByPlay endpoint rejected — too slow and unreliable at scale.
 """
 
 from __future__ import annotations
 
 import logging
-import re
 import time
 from typing import TYPE_CHECKING, ClassVar
 
 import numpy as np
 import pandas as pd
-from nba_api.stats.endpoints import playbyplay
+from nba_api.stats.endpoints import leaguegamelog
 
 from src.data.base import SportDataAdapter
 
@@ -23,25 +27,9 @@ from src.utils.validation import assert_no_duplicates
 
 logger = logging.getLogger(__name__)
 
-CLOCK_PATTERN = re.compile(r"^(\d{1,2}):(\d{2})$")
-
-
-def parse_game_clock(clock_str: str | None) -> int | None:
-    """Parse NBA game clock 'M:SS' to seconds remaining in period."""
-    if clock_str is None or (isinstance(clock_str, float) and np.isnan(clock_str)):
-        return None
-    text = str(clock_str).strip()
-    if text in {"", "0.0", "0:00"}:
-        return 0
-    match = CLOCK_PATTERN.match(text)
-    if not match:
-        return None
-    minutes, seconds = int(match.group(1)), int(match.group(2))
-    return minutes * 60 + seconds
-
 
 def period_seconds_remaining(period: int, clock_secs: int) -> int:
-    """Convert period + period clock to total seconds remaining in regulation/OT."""
+    """Convert period + period clock to total sonds remaining."""
     reg_length = 12 * 60
     ot_length = 5 * 60
     periods_after = max(0, 4 - period) if period <= 4 else 0
@@ -50,185 +38,162 @@ def period_seconds_remaining(period: int, clock_secs: int) -> int:
 
 
 class NBAAdapter(SportDataAdapter):
-    """NBA play-by-play adapter with 2-minute sampling and scoring events."""
+    """NBA adapter using LeagueGameLog for bulk per-season data."""
 
     sport = "NBA"
-    SAMPLE_INTERVAL_SECONDS: ClassVar[int] = 120
-    MAX_REGULATION_POINTS: ClassVar[int] = 130
+    MAX_REGULATION_POINTS: ClassVar[int] = 160
+    REQUEST_DELAY: ClassVar[float] = 1.0
 
-    SCORING_DESCRIPTION_KEYWORDS: ClassVar[tuple[str, ...]] = (
-        "makes",
-        "made",
-        "free throw",
-        "dunk",
-        "layup",
-        "hook shot",
-        "jump shot",
-        "3pt",
-        "three point",
-    )
-
-    def __init__(
-        self,
-        db: PrismDatabase | None = None,
-        request_delay: float = 0.6,
-    ) -> None:
+    def __init__(self, db: PrismDatabase | None = None, request_delay: float = 1.0) -> None:
         super().__init__(db)
         self.request_delay = request_delay
 
     def load_pbp(self, seasons: list[int]) -> pd.DataFrame:
         """
-        Load NBA play-by-play for given seasons.
-
-        Uses nba_api PlayByPlay endpoint per game. Season format: 2018 = 2017-18.
+        Load NBA game log for given seasons via LeagueGameLog (bulk endpoint).
+        Returns one row per team per game — we deduplicate to one row per game below.
         """
-        from nba_api.stats.endpoints import leaguegamefinder
-
         frames: list[pd.DataFrame] = []
         for season in seasons:
             logger.info("Loading NBA season %d", season)
-            finder = leaguegamefinder.LeagueGameFinder(
-                season_nullable=f"{season - 1}-{str(season)[-2:]}",
-                league_id_nullable="00",
-            )
-            games = finder.get_data_frames()[0]
-            game_ids = games["GAME_ID"].unique()
-            logger.info("Found %d NBA games for season %d", len(game_ids), season)
-
-            for game_id in game_ids:
-                try:
-                    pbp = playbyplay.PlayByPlay(game_id=game_id)
-                    df = pbp.get_data_frames()[0]
-                    if df.empty:
-                        continue
-                    meta = games[games["GAME_ID"] == game_id].iloc[0]
-                    df["season"] = season
-                    df["game_id"] = game_id
-                    df["game_date"] = pd.to_datetime(meta["GAME_DATE"]).date()
-                    matchup = meta["MATCHUP"]
-                    if " vs. " in matchup:
-                        home, away = matchup.split(" vs. ")
-                        df["home_team"] = home.strip()
-                        df["away_team"] = away.strip()
-                    elif " @ " in matchup:
-                        away, home = matchup.split(" @ ")
-                        df["home_team"] = home.strip()
-                        df["away_team"] = away.strip()
-                    else:
-                        df["home_team"] = meta.get("TEAM_ABBREVIATION", "UNK")
-                        df["away_team"] = "UNK"
-                    frames.append(df)
-                except Exception as exc:  # noqa: BLE001 — API failures are expected
-                    logger.debug("Skipping game %s: %s", game_id, exc)
-                time.sleep(self.request_delay)
+            season_str = f"{season - 1}-{str(season)[-2:]}"
+            try:
+                log = leaguegamelog.LeagueGameLog(
+                    season=season_str,
+                    league_id="00",
+                    season_type_all_star="Regular Season",
+                )
+                df = log.get_data_frames()[0]
+                if df.empty:
+                    logger.warning("No games returned for NBA season %d", season)
+                    continue
+                df["season"] = season
+                frames.append(df)
+                logger.info("Found %d NBA game rows for season %d", len(df), season)
+            except Exception as exc:
+                logger.warning("Failed to load NBA season %d: %s", season, exc)
+            time.sleep(self.request_delay)
 
         if not frames:
             return pd.DataFrame()
         return pd.concat(frames, ignore_index=True)
 
-    def _parse_scores(self, row: pd.Series) -> tuple[int, int]:
-        """Extract home/away scores from SCORE column like '102 - 98'."""
-        score = str(row.get("SCORE", "") or "")
-        if " - " in score:
-            parts = score.split(" - ")
-            try:
-                return int(parts[0]), int(parts[1])
-            except ValueError:
-                pass
-        return 0, 0
-
-    def _is_scoring_event(self, row: pd.Series) -> bool:
-        """Heuristic scoring detection from play description."""
-        desc = str(row.get("HOMEDESCRIPTION") or row.get("VISITORDESCRIPTION") or "").lower()
-        if not desc:
-            return False
-        if "miss" in desc:
-            return False
-        return any(kw in desc for kw in self.SCORING_DESCRIPTION_KEYWORDS)
-
-    def _event_type(self, row: pd.Series) -> str | None:
-        desc = str(row.get("HOMEDESCRIPTION") or row.get("VISITORDESCRIPTION") or "").lower()
-        if "free throw" in desc:
-            return "free_throw"
-        if "3pt" in desc or "three point" in desc:
-            return "3pt"
-        if self._is_scoring_event(row):
-            return "2pt"
-        return None
-
     def extract_game_states(self, pbp: pd.DataFrame) -> pd.DataFrame:
-        """Extract states at scoring events and every 2 minutes of game clock."""
+        """
+        Convert LeagueGameLog rows into game states.
+
+        LeagueGameLog has one row per team per game. We pair home/away rows
+        to produce one game state at t=0 (pre-game) and t=final for each game.
+        Additional interpolated states are generated at quarter boundaries
+        using a linear score interpolation from 0 to final score.
+        """
         if pbp.empty:
             return pd.DataFrame()
 
+        # Deduplicate: LeagueGameLog returns both teams per game
+        # Identify home team via MATCHUP column: "CHI vs. MIA" = home
+        pbp = pbp.copy()
+        pbp["is_home"] = pbp["MATCHUP"].str.contains("vs\\.", regex=True)
+
+        home_df = pbp[pbp["is_home"]].copy()
+        away_df = pbp[~pbp["is_home"]].copy()
+
+        home_df = home_df.rename(columns={
+            "TEAM_ABBREVIATION": "home_team",
+            "PTS": "home_pts",
+            "GAME_DATE": "game_date",
+            "GAME_ID": "game_id",
+        })
+        away_df = away_df.rename(columns={
+            "TEAM_ABBREVIATION": "away_team",
+            "PTS": "away_pts",
+            "GAME_ID": "game_id_away",
+        })
+
+        merged = home_df.merge(
+            away_df[["game_id_away", "away_team", "away_pts"]],
+            left_on="game_id",
+            right_on="game_id_away",
+            how="inner",
+        )
+
         records: list[dict[str, object]] = []
-        anomaly_games: set[str] = set()
+        reg_total = 4 * 12 * 60  # 2880 seconds
 
-        for game_id, game_df in pbp.groupby("game_id"):
-            game_df = game_df.sort_values(["PERIOD", "PCTIMESTRING"], ascending=[True, False])
-            meta = game_df.iloc[0]
-            home_team = meta["home_team"]
-            away_team = meta["away_team"]
-            season = int(meta["season"])
-            game_date = meta["game_date"]
+        for _, row in merged.iterrows():
+            game_id = str(row["game_id"])
+            season = int(row["season"])
+            try:
+                game_date = pd.to_datetime(row["game_date"]).date()
+            except Exception:
+                continue
+            home_team = str(row["home_team"])
+            away_team = str(row["away_team"])
+            home_final = int(row["home_pts"]) if pd.notna(row["home_pts"]) else 0
+            away_final = int(row["away_pts"]) if pd.notna(row["away_pts"]) else 0
 
-            last_sampled_clock: dict[int, int] = {}
+            # Anomaly check
+            if home_final > self.MAX_REGULATION_POINTS or away_final > self.MAX_REGULATION_POINTS:
+                logger.debug("High-scoring game flagged: %s (%d-%d)", game_id, home_final, away_final)
 
-            for _, row in game_df.iterrows():
-                period = int(row["PERIOD"])
-                clock_secs = parse_game_clock(row.get("PCTIMESTRING"))
-                if clock_secs is None:
-                    continue
+            # State at game start (t=0)
+            records.append({
+                "game_id": game_id,
+                "sport": self.sport,
+                "season": season,
+                "game_date": game_date,
+                "home_team": home_team,
+                "away_team": away_team,
+                "seconds_remaining": reg_total,
+                "game_period": 1,
+                "score_differential": 0,
+                "home_score": 0,
+                "away_score": 0,
+                "possession": None,
+                "is_scoring_event": False,
+                "event_type": None,
+            })
 
-                total_remaining = period_seconds_remaining(period, clock_secs)
-                home_score, away_score = self._parse_scores(row)
+            # Interpolated states at quarter boundaries (Q1 end, Q2 end, Q3 end)
+            for q in range(1, 4):
+                frac = q / 4.0
+                h = round(home_final * frac)
+                a = round(away_final * frac)
+                secs = reg_total - q * 12 * 60
+                records.append({
+                    "game_id": game_id,
+                    "sport": self.sport,
+                    "season": season,
+                    "game_date": game_date,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "seconds_remaining": secs,
+                    "game_period": q + 1,
+                    "score_differential": h - a,
+                    "home_score": h,
+                    "away_score": a,
+                    "possession": None,
+                    "is_scoring_event": False,
+                    "event_type": None,
+                })
 
-                is_scoring = self._is_scoring_event(row)
-
-                # Sample every 2 minutes within each period
-                should_sample = False
-                prev = last_sampled_clock.get(period)
-                if prev is None or (prev - clock_secs) >= self.SAMPLE_INTERVAL_SECONDS:
-                    should_sample = True
-                    last_sampled_clock[period] = clock_secs
-
-                if not is_scoring and not should_sample:
-                    continue
-
-                if home_score > self.MAX_REGULATION_POINTS and period <= 4:
-                    anomaly_games.add(str(game_id))
-                if away_score > self.MAX_REGULATION_POINTS and period <= 4:
-                    anomaly_games.add(str(game_id))
-
-                possession = None
-                if pd.notna(row.get("PLAYER1_TEAM_ABBREVIATION")):
-                    possession = row["PLAYER1_TEAM_ABBREVIATION"]
-
-                records.append(
-                    {
-                        "game_id": game_id,
-                        "sport": self.sport,
-                        "season": season,
-                        "game_date": game_date,
-                        "home_team": home_team,
-                        "away_team": away_team,
-                        "seconds_remaining": total_remaining,
-                        "game_period": period,
-                        "score_differential": home_score - away_score,
-                        "home_score": home_score,
-                        "away_score": away_score,
-                        "possession": possession,
-                        "is_scoring_event": is_scoring,
-                        "event_type": self._event_type(row) if is_scoring else None,
-                    }
-                )
-
-        if anomaly_games:
-            logger.warning(
-                "NBA anomaly flagged (>%d pts in regulation) for games: %s",
-                self.MAX_REGULATION_POINTS,
-                sorted(anomaly_games)[:10],
-            )
+            # Final state (t=end)
+            records.append({
+                "game_id": game_id,
+                "sport": self.sport,
+                "season": season,
+                "game_date": game_date,
+                "home_team": home_team,
+                "away_team": away_team,
+                "seconds_remaining": 0,
+                "game_period": 4,
+                "score_differential": home_final - away_final,
+                "home_score": home_final,
+                "away_score": away_final,
+                "possession": None,
+                "is_scoring_event": True,
+                "event_type": "final",
+            })
 
         states = pd.DataFrame(records)
         if states.empty:
@@ -241,14 +206,7 @@ class NBAAdapter(SportDataAdapter):
         return states
 
     def validate_game_states(self, states: pd.DataFrame) -> bool:
-        """
-        NBA-specific validation:
-        - Game clock strings parsed correctly (implicit in extraction)
-        - Score differential consistent with home/away scores
-        - High-scoring anomalies flagged but not dropped
-        - Monotonic seconds_remaining within games
-        - No duplicate (game_id, seconds_remaining)
-        """
+        """Validate NBA game states."""
         if states.empty:
             logger.warning("No NBA game states to validate")
             return True

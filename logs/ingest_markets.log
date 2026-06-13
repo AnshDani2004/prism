@@ -1,0 +1,18 @@
+2026-06-12 22:05:43 | ERROR    | src.data.polymarket | Polymarket markets fetch failed: 422 Client Error: Unprocessable Entity for url: https://gamma-api.polymarket.com/markets?closed=true&tag=nfl&limit=100&offset=10100
+2026-06-12 22:05:43 | INFO     | src.data.database | DuckDB schema initialized at data/prism.duckdb
+2026-06-12 22:05:43 | INFO     | src.data.database | Upserted 10100 rows into contracts
+2026-06-12 22:05:43 | INFO     | src.data.polymarket | Polymarket: loaded 10100 resolved NFL markets
+2026-06-12 22:06:48 | ERROR    | src.data.polymarket | Polymarket markets fetch failed: 422 Client Error: Unprocessable Entity for url: https://gamma-api.polymarket.com/markets?closed=true&tag=nba&limit=100&offset=10100
+2026-06-12 22:06:48 | INFO     | src.data.database | Upserted 10100 rows into contracts
+2026-06-12 22:06:48 | INFO     | src.data.polymarket | Polymarket: loaded 10100 resolved NBA markets
+2026-06-12 22:06:48 | WARNING  | prism | Skipping Kalshi ingest (credentials not configured): KALSHI_API_KEY_ID not set in environment
+2026-06-12 22:06:48 | INFO     | src.data.database | DuckDB schema initialized at data/prism.duckdb
+2026-06-12 22:44:45 | INFO     | src.data.mapping | Mapping complete: 0 matched, 0 ambiguous, 10100 unmatched contracts
+2026-06-12 22:44:45 | INFO     | prism | Matched 0 game-contract pairs
+Market ingest complete:
+  nfl_game_states: 29566
+  nba_game_states: 35295
+  kalshi_contracts: 0
+  polymarket_contracts: 10100
+  high_confidence_matches: 0
+  score_consistency_check: 0

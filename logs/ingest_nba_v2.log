@@ -1,0 +1,181 @@
+2026-06-12 21:59:10 | INFO     | src.data.base | Ingesting NFL seasons [2018, 2019, 2020, 2021, 2022, 2023]
+2026-06-12 21:59:10 | INFO     | src.data.nfl | Loading NFL play-by-play for seasons [2018, 2019, 2020, 2021, 2022, 2023]
+2018 done.
+2019 done.
+2020 done.
+2021 done.
+2022 done.
+2023 done.
+Downcasting floats.
+2026-06-12 21:59:27 | INFO     | src.data.nfl | NFL game states passed all validation checks (29566 rows)
+2026-06-12 21:59:27 | INFO     | src.data.database | DuckDB schema initialized at data/prism.duckdb
+2026-06-12 21:59:27 | INFO     | src.data.database | Upserted 29566 rows into game_states
+2026-06-12 21:59:27 | INFO     | src.data.base | NFL ingest complete: 1657 games, 29566 states, 23119 scoring events
+2026-06-12 21:59:27 | INFO     | src.data.base | Ingesting NBA seasons [2018, 2019, 2020, 2021, 2022, 2023]
+--- Logging error ---
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 1151, in emit
+    msg = self.format(record)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 999, in format
+    return fmt.format(record)
+           ~~~~~~~~~~^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 712, in format
+    record.message = record.getMessage()
+                     ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 400, in getMessage
+    msg = msg % self.args
+          ~~~~^~~~~~~~~~~
+TypeError: not all arguments converted during string formatting
+Call stack:
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 27, in <module>
+    main()
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 18, in main
+    nba.ingest(settings.nba_seasons)
+  File "/Users/ansh/Desktop/prism/src/data/base.py", line 43, in ingest
+    pbp = self.load_pbp(seasons)
+  File "/Users/ansh/Desktop/prism/src/data/nba.py", line 58, in load_pbp
+    logger.info("Loading NBA seasond", season)
+Message: 'Loading NBA seasond'
+Arguments: (2018,)
+2026-06-12 21:59:27 | INFO     | src.data.nba | Found 2460 NBA game rows for season 2018
+--- Logging error ---
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 1151, in emit
+    msg = self.format(record)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 999, in format
+    return fmt.format(record)
+           ~~~~~~~~~~^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 712, in format
+    record.message = record.getMessage()
+                     ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 400, in getMessage
+    msg = msg % self.args
+          ~~~~^~~~~~~~~~~
+TypeError: not all arguments converted during string formatting
+Call stack:
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 27, in <module>
+    main()
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 18, in main
+    nba.ingest(settings.nba_seasons)
+  File "/Users/ansh/Desktop/prism/src/data/base.py", line 43, in ingest
+    pbp = self.load_pbp(seasons)
+  File "/Users/ansh/Desktop/prism/src/data/nba.py", line 58, in load_pbp
+    logger.info("Loading NBA seasond", season)
+Message: 'Loading NBA seasond'
+Arguments: (2019,)
+2026-06-12 21:59:29 | INFO     | src.data.nba | Found 2460 NBA game rows for season 2019
+--- Logging error ---
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 1151, in emit
+    msg = self.format(record)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 999, in format
+    return fmt.format(record)
+           ~~~~~~~~~~^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 712, in format
+    record.message = record.getMessage()
+                     ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 400, in getMessage
+    msg = msg % self.args
+          ~~~~^~~~~~~~~~~
+TypeError: not all arguments converted during string formatting
+Call stack:
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 27, in <module>
+    main()
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 18, in main
+    nba.ingest(settings.nba_seasons)
+  File "/Users/ansh/Desktop/prism/src/data/base.py", line 43, in ingest
+    pbp = self.load_pbp(seasons)
+  File "/Users/ansh/Desktop/prism/src/data/nba.py", line 58, in load_pbp
+    logger.info("Loading NBA seasond", season)
+Message: 'Loading NBA seasond'
+Arguments: (2020,)
+2026-06-12 21:59:30 | INFO     | src.data.nba | Found 2118 NBA game rows for season 2020
+--- Logging error ---
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 1151, in emit
+    msg = self.format(record)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 999, in format
+    return fmt.format(record)
+           ~~~~~~~~~~^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 712, in format
+    record.message = record.getMessage()
+                     ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 400, in getMessage
+    msg = msg % self.args
+          ~~~~^~~~~~~~~~~
+TypeError: not all arguments converted during string formatting
+Call stack:
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 27, in <module>
+    main()
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 18, in main
+    nba.ingest(settings.nba_seasons)
+  File "/Users/ansh/Desktop/prism/src/data/base.py", line 43, in ingest
+    pbp = self.load_pbp(seasons)
+  File "/Users/ansh/Desktop/prism/src/data/nba.py", line 58, in load_pbp
+    logger.info("Loading NBA seasond", season)
+Message: 'Loading NBA seasond'
+Arguments: (2021,)
+2026-06-12 21:59:31 | INFO     | src.data.nba | Found 2160 NBA game rows for season 2021
+--- Logging error ---
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 1151, in emit
+    msg = self.format(record)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 999, in format
+    return fmt.format(record)
+           ~~~~~~~~~~^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 712, in format
+    record.message = record.getMessage()
+                     ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 400, in getMessage
+    msg = msg % self.args
+          ~~~~^~~~~~~~~~~
+TypeError: not all arguments converted during string formatting
+Call stack:
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 27, in <module>
+    main()
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 18, in main
+    nba.ingest(settings.nba_seasons)
+  File "/Users/ansh/Desktop/prism/src/data/base.py", line 43, in ingest
+    pbp = self.load_pbp(seasons)
+  File "/Users/ansh/Desktop/prism/src/data/nba.py", line 58, in load_pbp
+    logger.info("Loading NBA seasond", season)
+Message: 'Loading NBA seasond'
+Arguments: (2022,)
+2026-06-12 21:59:32 | INFO     | src.data.nba | Found 2460 NBA game rows for season 2022
+--- Logging error ---
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 1151, in emit
+    msg = self.format(record)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 999, in format
+    return fmt.format(record)
+           ~~~~~~~~~~^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 712, in format
+    record.message = record.getMessage()
+                     ~~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.4/Frameworks/Python.framework/Versions/3.13/lib/python3.13/logging/__init__.py", line 400, in getMessage
+    msg = msg % self.args
+          ~~~~^~~~~~~~~~~
+TypeError: not all arguments converted during string formatting
+Call stack:
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 27, in <module>
+    main()
+  File "/Users/ansh/Desktop/prism/scripts/ingest_sports.py", line 18, in main
+    nba.ingest(settings.nba_seasons)
+  File "/Users/ansh/Desktop/prism/src/data/base.py", line 43, in ingest
+    pbp = self.load_pbp(seasons)
+  File "/Users/ansh/Desktop/prism/src/data/nba.py", line 58, in load_pbp
+    logger.info("Loading NBA seasond", season)
+Message: 'Loading NBA seasond'
+Arguments: (2023,)
+2026-06-12 21:59:33 | INFO     | src.data.nba | Found 2460 NBA game rows for season 2023
+2026-06-12 21:59:35 | INFO     | src.data.nba | NBA game states passed all validation checks (35295 rows)
+2026-06-12 21:59:35 | INFO     | src.data.database | DuckDB schema initialized at data/prism.duckdb
+2026-06-12 21:59:35 | INFO     | src.data.database | Upserted 35295 rows into game_states
+2026-06-12 21:59:35 | INFO     | src.data.base | NBA ingest complete: 7059 games, 35295 states, 7059 scoring events
+Sports ingest complete:
+  nfl_game_states: 29566
+  nba_game_states: 35295
+  kalshi_contracts: 0
+  polymarket_contracts: 10100
+  high_confidence_matches: 0
+  score_consistency_check: 0

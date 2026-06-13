@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-time market data ingestion and game-contract matching."""
-
 from config.settings import Settings
+from src.data.database import PrismDatabase
 from src.data.kalshi import KalshiAdapter, KalshiAuthError
 from src.data.mapping import GameContractMapper
 from src.data.polymarket import PolymarketAdapter
@@ -11,10 +11,14 @@ from src.utils.logging import setup_logging
 def main() -> None:
     settings = Settings()
     logger = setup_logging(settings)
+    db = PrismDatabase()
 
-    polymarket = PolymarketAdapter()
+    polymarket = PolymarketAdapter(db=db)
     for sport in ("NFL", "NBA"):
-        polymarket.get_resolved_sports_markets(sport)
+        contracts = polymarket.ingest_sport(sport)
+        if not contracts.empty:
+            db.upsert_dataframe("contracts", contracts, ["contract_id", "market_source"])
+            logger.info("Saved %d %s contracts to DB", len(contracts), sport)
 
     try:
         kalshi = KalshiAdapter()
@@ -24,11 +28,11 @@ def main() -> None:
     except KalshiAuthError as exc:
         logger.warning("Skipping Kalshi ingest (credentials not configured): %s", exc)
 
-    mapper = GameContractMapper()
+    mapper = GameContractMapper(db=db)
     matches = mapper.match_all()
     logger.info("Matched %d game-contract pairs", len(matches))
 
-    results = polymarket.db.phase1_checkpoint()
+    results = db.phase1_checkpoint()
     print("Market ingest complete:")
     for key, value in results.items():
         print(f"  {key}: {value}")

@@ -1,176 +1,215 @@
 """
-Polymarket historical data pipeline via Gamma + CLOB APIs.
-
-Gamma API: market metadata (https://gamma-api.polymarket.com)
-CLOB API: price history (https://clob.polymarket.com/prices-history)
+Polymarket historical data pipeline via Gamma Events API.
+Correct endpoint: /events with tag= filter, NOT /markets.
 """
-
 from __future__ import annotations
-
-import json
-import logging
-import time
-from typing import Any
-
+import json, logging, re, time
+from datetime import date
+from typing import TYPE_CHECKING, Any
 import pandas as pd
 import requests
-
-from src.data.database import PrismDatabase
+from src.data.base import SportDataAdapter
+if TYPE_CHECKING:
+    from src.data.database import PrismDatabase
 
 logger = logging.getLogger(__name__)
-
 GAMMA_API = "https://gamma-api.polymarket.com"
-CLOB_API = "https://clob.polymarket.com"
+REQUEST_DELAY = 0.5
+
+NFL_NAME_TO_ABV = {
+    "49ers": "SF", "bears": "CHI", "bengals": "CIN", "bills": "BUF",
+    "broncos": "DEN", "browns": "CLE", "buccaneers": "TB", "bucs": "TB",
+    "cardinals": "ARI", "chargers": "LAC", "chiefs": "KC", "colts": "IND",
+    "commanders": "WAS", "cowboys": "DAL", "dolphins": "MIA", "eagles": "PHI",
+    "falcons": "ATL", "giants": "NYG", "jaguars": "JAX", "jets": "NYJ",
+    "lions": "DET", "packers": "GB", "panthers": "CAR", "patriots": "NE",
+    "raiders": "LV", "rams": "LAR", "ravens": "BAL", "saints": "NO",
+    "seahawks": "SEA", "steelers": "PIT", "texans": "HOU", "titans": "TEN",
+    "vikings": "MIN", "washington": "WAS", "redskins": "WAS",
+}
+NBA_NAME_TO_ABV = {
+    "76ers": "PHI", "bucks": "MIL", "bulls": "CHI", "cavaliers": "CLE",
+    "cavs": "CLE", "celtics": "BOS", "clippers": "LAC", "grizzlies": "MEM",
+    "hawks": "ATL", "heat": "MIA", "hornets": "CHA", "jazz": "UTA",
+    "kings": "SAC", "knicks": "NYK", "lakers": "LAL", "magic": "ORL",
+    "mavericks": "DAL", "mavs": "DAL", "nets": "BKN", "nuggets": "DEN",
+    "pacers": "IND", "pelicans": "NOP", "pistons": "DET", "raptors": "TOR",
+    "rockets": "HOU", "spurs": "SAS", "suns": "PHX", "thunder": "OKC",
+    "timberwolves": "MIN", "wolves": "MIN", "trail blazers": "POR",
+    "blazers": "POR", "warriors": "GSW", "wizards": "WAS",
+}
+
+TEAM_PATTERN = re.compile(
+    r"Will (?:the )?(.+?) (?:beat|vs\.?|@|against|cover|win) (?:the )?(.+?)(?:\s+by|\s+in|\s+to|\s+win|\?|$)",
+    re.IGNORECASE,
+)
 
 
-class PolymarketAdapter:
-    """Polymarket market discovery and price history adapter."""
+def name_to_abv(name: str, sport: str) -> str:
+    lookup = NFL_NAME_TO_ABV if sport.upper() == "NFL" else NBA_NAME_TO_ABV
+    name_lower = name.strip().lower()
+    if name_lower in lookup:
+        return lookup[name_lower]
+    for key, abv in lookup.items():
+        if key in name_lower or name_lower in key:
+            return abv
+    return name.strip().upper()[:3]
 
-    MARKET_SOURCE = "polymarket"
 
-    SPORT_TAGS: dict[str, str] = {
-        "NFL": "nfl",
-        "NBA": "nba",
-    }
+def extract_teams(title: str, sport: str) -> tuple[str, str]:
+    clean = re.sub(r"^\(?In-Game Trading\)?\s*", "", title, flags=re.IGNORECASE)
+    clean = re.sub(r"^(NFL|NBA):\s*", "", clean, flags=re.IGNORECASE)
+    m = TEAM_PATTERN.search(clean)
+    if m:
+        t1 = name_to_abv(m.group(1).strip(), sport)
+        t2 = name_to_abv(m.group(2).strip(), sport)
+        return t1, t2
+    return "", ""
 
-    def __init__(self, db: PrismDatabase | None = None, request_delay: float = 0.3):
-        self.db = db or PrismDatabase()
-        self.request_delay = request_delay
-        self.session = requests.Session()
 
-    def _get(self, url: str, params: dict[str, Any] | None = None) -> Any:
-        response = self.session.get(url, params=params, timeout=30)
-        response.raise_for_status()
-        return response.json()
+def parse_end_date(date_str: str | None) -> date | None:
+    if not date_str:
+        return None
+    try:
+        return pd.to_datetime(date_str).date()
+    except Exception:
+        return None
 
-    def get_resolved_sports_markets(self, sport: str) -> list[dict[str, Any]]:
-        """
-        Query Gamma API for resolved sports markets.
 
-        Paginates with limit/offset. Caches contract metadata to DuckDB.
-        """
-        tag = self.SPORT_TAGS.get(sport.upper(), sport.lower())
-        contracts: list[dict[str, Any]] = []
+class PolymarketAdapter(SportDataAdapter):
+    sport = "POLYMARKET"
+
+    def __init__(self, db: "PrismDatabase | None" = None) -> None:
+        super().__init__(db)
+
+    def load_pbp(self, seasons: list[int]) -> pd.DataFrame:
+        return pd.DataFrame()
+
+    def extract_game_states(self, pbp: pd.DataFrame) -> pd.DataFrame:
+        return pd.DataFrame()
+
+    def validate_game_states(self, states: pd.DataFrame) -> bool:
+        return True
+
+    def get_resolved_sports_markets(
+        self, sport: str, limit_per_page: int = 100, max_pages: int = 200
+    ) -> list[dict[str, Any]]:
+        tag = sport.lower()
+        all_events: list[dict[str, Any]] = []
         offset = 0
-        limit = 100
-
-        while True:
-            params = {
-                "closed": "true",
-                "tag": tag,
-                "limit": limit,
-                "offset": offset,
-            }
-            try:
-                markets = self._get(f"{GAMMA_API}/markets", params=params)
-            except requests.HTTPError as exc:
-                logger.error("Polymarket markets fetch failed: %s", exc)
-                break
-
-            if not markets:
-                break
-
-            for market in markets:
-                question = market.get("question", "")
-                outcomes = market.get("outcomes")
-                if isinstance(outcomes, str):
-                    outcomes = json.loads(outcomes)
-                tokens = market.get("clobTokenIds")
-                if isinstance(tokens, str):
-                    tokens = json.loads(tokens)
-
-                resolved_outcome = None
-                resolution_price = None
-                if market.get("umaResolutionStatus") == "resolved":
-                    winner = market.get("outcome")
-                    if winner:
-                        resolved_outcome = str(winner).lower()
-
-                end_date = market.get("endDate") or market.get("closedTime")
-                contract = {
-                    "contract_id": str(market.get("id", market.get("conditionId", ""))),
-                    "market_source": self.MARKET_SOURCE,
-                    "sport": sport.upper(),
-                    "home_team": "",
-                    "away_team": "",
-                    "game_date": pd.to_datetime(end_date).date() if end_date else None,
-                    "contract_type": "moneyline",
-                    "resolved_outcome": resolved_outcome,
-                    "resolution_price": resolution_price,
-                    "_question": question,
-                    "_token_ids": tokens,
-                }
-                contracts.append(contract)
-
-            if len(markets) < limit:
-                break
-            offset += limit
-            time.sleep(self.request_delay)
-
-        persist = [
-            {k: v for k, v in c.items() if not k.startswith("_")}
-            for c in contracts
-            if c.get("game_date") is not None
-        ]
-        if persist:
-            df = pd.DataFrame(persist)
-            self.db.upsert_dataframe(
-                "contracts", df, primary_key=["contract_id", "market_source"]
+        while offset < limit_per_page * max_pages:
+            url = (
+                f"{GAMMA_API}/events?closed=true&tag={tag}"
+                f"&limit={limit_per_page}&offset={offset}"
             )
-        logger.info("Polymarket: loaded %d resolved %s markets", len(contracts), sport)
+            try:
+                resp = requests.get(url, timeout=30)
+                resp.raise_for_status()
+                batch: list[dict[str, Any]] = resp.json()
+                if not batch:
+                    break
+                all_events.extend(batch)
+                logger.info(
+                    "Polymarket %s: fetched %d events (total: %d)",
+                    sport.upper(), len(batch), len(all_events),
+                )
+                if len(batch) < limit_per_page:
+                    break
+                offset += limit_per_page
+                time.sleep(REQUEST_DELAY)
+            except Exception as exc:
+                logger.error(
+                    "Polymarket events fetch failed at offset %d: %s", offset, exc
+                )
+                break
+        return all_events
+
+    def events_to_contracts(
+        self, events: list[dict[str, Any]], sport: str
+    ) -> pd.DataFrame:
+        records = []
+        for event in events:
+            title = str(event.get("title", ""))
+            end_date = parse_end_date(event.get("endDate"))
+            if end_date is None:
+                continue
+            home_team, away_team = extract_teams(title, sport)
+            resolved_outcome = None
+            resolution_price = None
+            markets = event.get("markets", [])
+            if markets:
+                mkt = markets[0]
+                try:
+                    prices = json.loads(mkt.get("outcomePrices", "[]"))
+                    outcomes = json.loads(mkt.get("outcomes", "[]"))
+                    if prices and outcomes:
+                        yes_price = float(prices[0])
+                        resolved_outcome = "yes" if yes_price > 0.5 else "no"
+                        resolution_price = yes_price
+                except Exception:
+                    pass
+            records.append({
+                "contract_id": str(event.get("id", "")),
+                "market_source": "polymarket",
+                "sport": sport.upper(),
+                "home_team": home_team,
+                "away_team": away_team,
+                "game_date": end_date,
+                "contract_type": "spread_or_moneyline",
+                "resolved_outcome": resolved_outcome,
+                "resolution_price": resolution_price,
+            })
+        return pd.DataFrame(records) if records else pd.DataFrame()
+
+    def ingest_sport(self, sport: str) -> pd.DataFrame:
+        events = self.get_resolved_sports_markets(sport)
+        if not events:
+            logger.warning("No Polymarket events found for sport %s", sport)
+            return pd.DataFrame()
+        contracts = self.events_to_contracts(events, sport)
+        logger.info(
+            "Polymarket: loaded %d resolved %s contracts",
+            len(contracts), sport.upper(),
+        )
         return contracts
 
     def get_price_history(self, token_id: str) -> pd.DataFrame:
-        """
-        Query CLOB API prices-history for an outcome token.
-
-        Returns DataFrame: timestamp, price (in [0,1]).
-        Caches to DuckDB immediately; only fetches each token once.
-        """
-        cached = self.db.query_df(
-            """
-            SELECT timestamp, yes_price, no_price, volume
-            FROM market_prices
-            WHERE contract_id = ? AND market_source = ?
-            ORDER BY timestamp
-            """,
-            [token_id, self.MARKET_SOURCE],
+        if self.db is not None:
+            cached = self.db.query_df(
+                "SELECT timestamp, yes_price FROM market_prices "
+                "WHERE contract_id = ? AND market_source = 'polymarket' "
+                "ORDER BY timestamp",
+                [token_id],
+            )
+            if not cached.empty:
+                return cached
+        url = (
+            f"https://clob.polymarket.com/prices-history"
+            f"?market={token_id}&interval=max&fidelity=60"
         )
-        if not cached.empty:
-            return cached
-
         try:
-            data = self._get(
-                f"{CLOB_API}/prices-history",
-                params={"market": token_id, "interval": "max"},
+            resp = requests.get(url, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            history = data.get("history", [])
+            if not history:
+                return pd.DataFrame()
+            df = pd.DataFrame(history)
+            df = df.rename(columns={"t": "timestamp", "p": "yes_price"})
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
+            df["contract_id"] = token_id
+            df["market_source"] = "polymarket"
+            df["no_price"] = 1.0 - df["yes_price"]
+            df["volume"] = None
+            if self.db is not None:
+                self.db.upsert_dataframe(
+                    "market_prices",
+                    df[["contract_id", "market_source", "timestamp",
+                        "yes_price", "no_price", "volume"]],
+                )
+            return df
+        except Exception as exc:
+            logger.error(
+                "Polymarket price history failed for %s: %s", token_id, exc
             )
-        except requests.HTTPError:
-            logger.warning("No price history for token %s", token_id)
             return pd.DataFrame()
-
-        history = data.get("history", [])
-        rows: list[dict[str, Any]] = []
-        for point in history:
-            ts = pd.to_datetime(point["t"], unit="s", utc=True)
-            price = float(point["p"])
-            rows.append(
-                {
-                    "contract_id": token_id,
-                    "market_source": self.MARKET_SOURCE,
-                    "timestamp": ts,
-                    "yes_price": price,
-                    "no_price": 1.0 - price,
-                    "yes_bid": None,
-                    "yes_ask": None,
-                    "volume": None,
-                }
-            )
-
-        df = pd.DataFrame(rows)
-        if not df.empty:
-            self.db.upsert_dataframe(
-                "market_prices",
-                df,
-                primary_key=["contract_id", "market_source", "timestamp"],
-            )
-        return df

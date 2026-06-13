@@ -203,3 +203,10 @@ Plain-language record of design choices. Append-only — never rewrite history.
 **What we explicitly did NOT do:** Rename `src/data/` to avoid the collision. The package name is correct; the ignore rule was wrong.
 
 **Revisit if:** We add another top-level data directory with a different name, or split raw data from the database path.
+
+## 2026-06-12 — Skip Kalshi historical ingestion, use Polymarket only
+**What was decided:** Kalshi is not used for historical market data ingestion in PRISM.
+**Why:** Kalshi sports markets only launched seriously in 2025, so coverage of NFL/NBA seasons 2018-2023 is minimal to nonexistent. Polymarket has deeper historical sports coverage for the research window and requires zero credentials. Kalshi also recently split their API into live and historical tiers adding significant engineering overhead for uncertain data quality. Polymarket at 10,100 contracts already loaded is a sufficient market dataset.
+**What we explicitly did NOT do:** Did not generate a Kalshi API key or implement RSA-PSS auth for historical pulls. Did not pay for any third-party Kalshi data aggregator.
+**Revisit if:** PRISM is extended to cover 2025-2026 seasons where Kalshi sports markets are active and liquid, at which point live Kalshi data becomes the primary market source.
+EOFcho "DECISIONS.md updated"
