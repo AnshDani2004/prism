@@ -206,6 +206,7 @@ class PolymarketAdapter(SportDataAdapter):
                     "market_prices",
                     df[["contract_id", "market_source", "timestamp",
                         "yes_price", "no_price", "volume"]],
+                    ["contract_id", "market_source", "timestamp"],
                 )
             return df
         except Exception as exc:
